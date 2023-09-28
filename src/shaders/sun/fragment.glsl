@@ -1,57 +1,47 @@
-#pragma glslify: snoise2 = require(glsl-noise/simplex/2d)
-#pragma glslify: snoise3 = require(glsl-noise/simplex/3d)
-#pragma glslify: snoise4 = require(glsl-noise/simplex/4d)
-
+uniform samplerCube uCubemap;
 uniform float uTime;
-uniform float uSpeed;
-uniform float uScale;
-uniform float uNoiseOffset;
+uniform float uFresnelPower;
 
-uniform vec3 uColor1;
-uniform vec3 uColor2;
-uniform vec3 uColor3;
-uniform vec3 uColor4;
-
-varying vec2 vUv;
 varying vec3 vPosition;
+varying vec3 vEyeVector;
+varying vec3 vWorldNormal;
 
-float fbm(vec4 p) {
-  float sum = 0.;
-  float amp = 1.;
-  float scale = 1.;
+float fresnel(vec3 eyeVector, vec3 worldNormal, float power) {
+  float fresnelFactor = abs(dot(eyeVector, worldNormal));
+  float inverseFresnelFactor = 1.0 - fresnelFactor;
 
-  for (int i = 0; i < 6; i++) {
-    sum += snoise4(p * scale) * amp;
-    p.w += 100.;
-    amp *= 0.9;
-    scale *= 2.;
-  }
+  return pow(inverseFresnelFactor, power);
+}
 
-  return sum;
+vec2 rotate(vec2 v, float a) {
+	float s = sin(a);
+	float c = cos(a);
+	mat2 m = mat2(c, s, -s, c);
+	return m * v;
 }
 
 void main() {
 
-  // noise value
-  // float noise = clamp(0., 1., snoise4(vec4(vPosition * uScale, uTime * uSpeed)));
+  // rotation around x
+  vec3 position3 = vec3(rotate(vPosition.yz, uTime * 0.007 + 10.), vPosition.x);
+  vec3 layer3 = textureCube(uCubemap, position3).rgb; 
 
-  // noise = clamp(0., 1., noise + snoise4(vec4(vPosition * uScale * .33, uTime * .1)));
-  // noise = clamp(0., 1., noise + snoise4(vec4(vPosition * uScale * .66, uTime * .02)));
-  // noise = clamp(0., 1., noise + uNoiseOffset);
+  // rotation around y
+  vec3 position2 = vec3(rotate(vPosition.xz, uTime * 0.002 + 5.), vPosition.y);
+  vec3 layer2 = textureCube(uCubemap, position2).rgb;
 
-  // FBM noise
-  vec4 p = vec4(vPosition * 3., uTime * 0.05);
-  float noise = fbm(p);
+  // rotation around z
+  vec3 position1 = vec3(rotate(vPosition.xy, uTime * 0.01 + 50.), vPosition.z);
+  vec3 layer1 = textureCube(uCubemap, position1).rgb;
 
-  // Simplex noise layer
-  vec4 p2 = vec4(vPosition * 2., uTime * 0.05);
-  float spots = max(snoise4(p2), 0.);
+  vec3 color = (layer1 + layer2 + layer3) / 3.;
 
-  noise = vec3(vec3(noise) * mix(1., spots, .7)).r + uNoiseOffset;
+  float f = fresnel(vEyeVector, vWorldNormal, uFresnelPower);
 
-  vec3 finalColor = mix(uColor1, uColor2, clamp(noise * 3., 0., 1.));
-  finalColor = mix(finalColor, uColor3, clamp(noise * 3. - 1., 0., 1.));
-  finalColor = mix(finalColor, uColor4, clamp(noise * 3. - 2., 0., 1.));
+  color += f;
 
-  gl_FragColor = vec4(finalColor, 1.);
+  // without layers
+  // color = textureCube(uCubemap, vPosition).rgb;
+
+  gl_FragColor = vec4(color, 1.);
 }

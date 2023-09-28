@@ -1,7 +1,13 @@
 uniform float uFresnelPower;
+uniform vec3 uColor;
 
-varying vec3 eyeVector;
-varying vec3 worldNormal;
+uniform float uA;
+uniform float uB;
+uniform float uHotnessA;
+
+varying vec3 vPosition;
+varying vec3 vEyeVector;
+varying vec3 vWorldNormal;
 
 float fresnel(vec3 eyeVector, vec3 worldNormal, float power) {
   float fresnelFactor = abs(dot(eyeVector, worldNormal));
@@ -10,17 +16,16 @@ float fresnel(vec3 eyeVector, vec3 worldNormal, float power) {
   return pow(inverseFresnelFactor, power);
 }
 
+vec3 brightnessToColor(float b) {
+  b *= .25;
+  return (vec3(b, b*b, b*b*b*b)/0.25)*0.8;
+}
+
 void main() {
-  vec3 normal = worldNormal;
-  vec3 color = vec3(1., 0., 0.);
+  float f = 1. - fresnel(vEyeVector, vWorldNormal, uFresnelPower);
+  f = pow(f, uA) * uB;
 
-  vec4 color1 = vec4(1., 0., 0., 1.);
-  vec4 color2 = vec4(1., 0., 0., 0.);
+  vec3 color = brightnessToColor(f) * (uHotnessA - 1.);
 
-  // Fresnel
-  float fresnel = fresnel(eyeVector, normal, uFresnelPower);
-
-  vec4 finalColor = mix(color1, color2, fresnel);
-
-  gl_FragColor = finalColor;
+  gl_FragColor = vec4(color, f);
 }
