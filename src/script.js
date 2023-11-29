@@ -305,7 +305,6 @@ let protuberance;
  */
 const clock = new THREE.Clock();
 let previousTime = 0;
-const toto = "titi";
 
 const tick = () => {
   stats.begin();
